@@ -38,11 +38,22 @@ typedef  nvs_handle nvs_handle_t;
 #endif
 
 static const char *tag = "NimBLEKBD_main";
+SemaphoreHandle_t ble_connected = NULL;
 
 nvs_handle_t Nvs_storage_handle = 0;
 
 /* from ble_func.c */
 extern void ble_init();
+
+void mouse_movement_task(void *pvParameters) {
+    bool connected = false;
+    while (1) {
+        if (xSemaphoreTake(ble_connected, pdMS_TO_TICKS(1000)) == pdTRUE) {
+            connected = true;
+            ESP_LOGI(tag, "BLE Connected!");
+        }
+    }
+}
 
 void
 app_main(void)
@@ -56,54 +67,14 @@ app_main(void)
     ESP_ERROR_CHECK(ret);
     ESP_ERROR_CHECK( nvs_open(LOCAL_NAMESPACE, NVS_READWRITE, &Nvs_storage_handle) );
 
+    ble_connected = xSemaphoreCreateBinary();
+    assert(ble_connected != NULL);
+    ESP_LOGI(tag, "ble_connected semaphore created");
 
-    QueueHandle_t buttons_queue = xQueueCreate(10, sizeof(uint32_t));
-    if (!buttons_queue) {
-        ESP_LOGE(tag, "Can not create queue!");
-        vTaskDelay(pdMS_TO_TICKS(30000));
-        esp_restart();
-    }
-
-    if (xTaskCreate(gpio_btn_task, "gpio_btn_task", 2048, buttons_queue, 10, NULL) != pdPASS) {
-        ESP_LOGE(tag, "Can not create gpio_btn_task!");
-        vTaskDelay(pdMS_TO_TICKS(30000));
-        esp_restart();
-    }
+    xTaskCreate(mouse_movement_task, "mouse_task", 2048, NULL, 1, NULL);
 
     ble_init();
     ESP_LOGI(tag, "BLE init ok, waiting for buttons ...");
 
-    while (1) {
-        uint32_t button, key_to_send;
-        if (xQueueReceive(buttons_queue, &button, portMAX_DELAY) == pdTRUE) {
-
-            // released or pressed?
-            bool pressed = true;
-            if (button & BUTTON_RELEASED_BIT) pressed = false;
-
-            // byte 0 have a key code
-            key_to_send = button & 0xff;
-
-            ESP_LOGI(tag, "button %d type %08X (src %08X) %s",
-                key_to_send, button & BUTTON_TYPE_MASK, button,
-                pressed ? "pressed" : "released");
-
-            switch (button & BUTTON_TYPE_MASK) {
-                case BUTTON_TYPE_KEYBOARD:
-                    hid_keyboard_change_key(key_to_send, pressed);
-                    break;
-
-                case BUTTON_TYPE_CC:
-                    hid_cc_change_key(key_to_send, pressed);
-                    break;
-
-                case BUTTON_TYPE_MOUSE:
-                    hid_mouse_change_key(key_to_send, 0, 0, pressed);
-                    break;
-
-                default:
-                    ESP_LOGI(tag, "unknown button type %d", (button & BUTTON_TYPE_MASK) >> 24);
-            }
-        }
-    }
+    
 }

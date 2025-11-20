@@ -192,7 +192,7 @@ extern "C" {
 #define NVS_IO_CAP_NUM "io_cap_number"
 #define DEFAULT_IO_CAP BLE_HS_IO_NO_INPUT_OUTPUT
 
-#define HID_KEYBOARD_APPEARENCE         0x03c1 // appearance field in advertising packet
+#define HID_KEYBOARD_APPEARENCE         0x03c2 // appearance field in advertising packet
 
 struct ble_hs_cfg;
 struct ble_gatt_register_ctxt;
