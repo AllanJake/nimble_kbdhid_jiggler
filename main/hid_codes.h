@@ -137,6 +137,7 @@ typedef uint8_t keyboard_cmd_t;
 #define HID_MOUSE_RIGHT        235
 #define HID_MOUSE_WHEEL_UP     236
 #define HID_MOUSE_WHEEL_DOWN   237
+#define HID_MOUSE_NONE         238
 typedef uint8_t mouse_cmd_t;
 
 // HID Consumer Usage IDs (subset of the codes available in the USB HID Usage Tables spec)

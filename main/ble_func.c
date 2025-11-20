@@ -17,6 +17,8 @@ static const char *tag = "NimBLEKBD_BLEFUNC";
 static int bleprph_gap_event(struct ble_gap_event *event, void *arg);
 static uint8_t own_addr_type;
 
+volatile bool s_is_connected = false;
+
 /**
  * Logs information about a connection to the console.
  */
@@ -182,6 +184,7 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
     case BLE_GAP_EVENT_DISCONNECT:
         ESP_LOGI(tag, "disconnect; reason=%d ", event->disconnect.reason);
         hid_set_disconnected();
+        s_is_connected = false;
 
         /* Connection terminated; resume advertising. */
         bleprph_advertise();
@@ -208,6 +211,20 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
         /* Encryption has been enabled or disabled for this connection. */
         ESP_LOGI(tag, "encryption change event; status=%d ",
                     event->enc_change.status);
+        if (event->subscribe.cur_notify || event->subscribe.cur_indicate) {
+            s_is_connected = true;
+            ESP_LOGI(tag, "s_is_connected set TRUE from SUBSCRIBE");
+        }
+        if (event->enc_change.status == 0) {
+            struct ble_gap_conn_desc desc;
+            int rc = ble_gap_conn_find(event->enc_change.conn_handle, &desc);
+            if (rc == 0) {
+                ESP_LOGI(tag, "Init HID Vars for conn_handle: %d", desc.conn_handle);
+                hid_clean_vars(&desc);
+            } else {
+                ESP_LOGW(tag, "ble_gap_conn_find failed rc=%d", rc);
+            }
+        }
         return 0;
 
     case BLE_GAP_EVENT_SUBSCRIBE:
@@ -220,6 +237,11 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
                     event->subscribe.cur_notify,
                     event->subscribe.prev_indicate,
                     event->subscribe.cur_indicate);
+        
+        if (event->subscribe.cur_notify || event->subscribe.cur_indicate) {
+            s_is_connected = true;
+            ESP_LOGI(tag, "s_is_connected set TRUE from SUBSCRIBE");
+        }   
 
         hid_set_notify(event->subscribe.attr_handle,
             event->subscribe.cur_notify,

@@ -423,6 +423,8 @@ hid_mouse_change_key(int cmd, int8_t move_x, int8_t move_y, bool pressed)
     if (lock_hid_data() == 0) {
 
         switch (cmd) {
+            case HID_MOUSE_NONE:
+                break;
             case HID_MOUSE_LEFT:
             case HID_MOUSE_MIDDLE:
             case HID_MOUSE_RIGHT:

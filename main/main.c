@@ -38,7 +38,7 @@ typedef  nvs_handle nvs_handle_t;
 #endif
 
 static const char *tag = "NimBLEKBD_main";
-SemaphoreHandle_t ble_connected = NULL;
+extern volatile bool s_is_connected;
 
 nvs_handle_t Nvs_storage_handle = 0;
 
@@ -46,11 +46,17 @@ nvs_handle_t Nvs_storage_handle = 0;
 extern void ble_init();
 
 void mouse_movement_task(void *pvParameters) {
-    bool connected = false;
+    ESP_LOGI(tag, "mouse movement task started");
     while (1) {
-        if (xSemaphoreTake(ble_connected, pdMS_TO_TICKS(1000)) == pdTRUE) {
-            connected = true;
-            ESP_LOGI(tag, "BLE Connected!");
+        if (s_is_connected) {
+            hid_mouse_change_key(HID_MOUSE_NONE, 20, 0, true);
+            vTaskDelay(pdMS_TO_TICKS(5000));
+            hid_mouse_change_key(HID_MOUSE_NONE, -20, 0, true);
+            vTaskDelay(pdMS_TO_TICKS(5000));
+        }
+        else {
+            vTaskDelay(pdMS_TO_TICKS(2000));
+
         }
     }
 }
@@ -67,14 +73,11 @@ app_main(void)
     ESP_ERROR_CHECK(ret);
     ESP_ERROR_CHECK( nvs_open(LOCAL_NAMESPACE, NVS_READWRITE, &Nvs_storage_handle) );
 
-    ble_connected = xSemaphoreCreateBinary();
-    assert(ble_connected != NULL);
-    ESP_LOGI(tag, "ble_connected semaphore created");
-
-    xTaskCreate(mouse_movement_task, "mouse_task", 2048, NULL, 1, NULL);
+    BaseType_t result = xTaskCreate(mouse_movement_task, "mouse_task", 4096, NULL, 1, NULL);
+    if (result != pdPASS) {
+        ESP_LOGE(tag, "Failed to create movement task (err=%ld)", result);
+    }
 
     ble_init();
     ESP_LOGI(tag, "BLE init ok, waiting for buttons ...");
-
-    
 }
